@@ -1,6 +1,6 @@
 # TODO
 
-## Observations
+## Requirements
 
 - Implement a _client-server_ architecture over **TCP/IP**
 
@@ -20,8 +20,10 @@
 - The billing must be registered on the driver's user account, allowing him to verify and
   perform the payments via PIX or any other form of electronic payment
 
-## Requirements
+## Client
 
-- [ ] Establish what informations is going to be exchanged between the systems
+...
 
-- [ ] Make sure the data can be sent/received through the systems
+## Server
+
+...
