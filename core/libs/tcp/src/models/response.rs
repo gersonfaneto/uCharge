@@ -1,9 +1,12 @@
+use serde::{Deserialize, Serialize};
+
+#[derive(Debug, Serialize, Deserialize)]
 pub struct Response<T> {
     data: T,
 }
 
 impl<T> Response<T> {
-    fn new(data: T) -> Self {
+    pub fn new(data: T) -> Self {
         Self { data }
     }
 }
