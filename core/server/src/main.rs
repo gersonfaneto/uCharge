@@ -1,3 +1,5 @@
+use tcp::server::listen;
+
 fn main() {
-    println!("Hello from the Server!");
+    listen("0.0.0.0:7878");
 }
