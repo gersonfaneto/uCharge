@@ -1,0 +1,16 @@
+services:
+  server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: server
+    container_name: server-container
+
+  client:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: client
+    container_name: client-container
+    depends_on:
+      - server
