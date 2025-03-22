@@ -3,6 +3,8 @@ resolver = "2"
 members = [
 	"server",
 	"client",
+	"libs/tcp",
+	"libs/models", "libs/utils",
 ]
 
 [workspace.lints.rust]
