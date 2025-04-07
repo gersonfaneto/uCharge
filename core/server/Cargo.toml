@@ -1,0 +1,8 @@
+[package]
+name = "ucharge-server"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+http = { path = "../../libs/http" }
+tokio = { version = "1.44.2", features = ["full"] }
