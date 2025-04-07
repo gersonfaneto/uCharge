@@ -1,0 +1,5 @@
+[toolchain]
+channel = "1.84.1"
+components = ["rust-src", "rustfmt"]
+targets = ["x86_64-unknown-linux-musl"]
+profile = "default"
