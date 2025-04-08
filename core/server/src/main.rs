@@ -5,7 +5,7 @@ use std::usize;
 
 use http::http::HttpMethod;
 use http::middleware::logger::LoggerMiddleware;
-use http::request::{ConfirmBody, ConnectBody, LoginBody, Request, UpdateBody};
+use http::request::{ConfirmBody, ConnectBody, LoginBody, Request, SignInBody, UpdateBody};
 use http::response::Response;
 use http::server::{FutureResponse, ServerBuilder};
 
@@ -25,18 +25,65 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/confirm", HttpMethod::POST, confirm_handler)
         .route("/connect", HttpMethod::POST, connect_handler)
         .route("/update", HttpMethod::POST, update_handler)
+        .route("/sign_in", HttpMethod::POST, sign_in_handler)
         .route("/login", HttpMethod::POST, login_handler)
         .accept(LoggerMiddleware)
         .build()?
         .run()
         .await?;
-    //.route("/sign_in", HttpMethod::POST, handler)
     //.route("/charge", HttpMethod::POST, handler)
     //.route("/arrived", HttpMethod::POST, handler)
     //.route("/charging", HttpMethod::POST, handler)
     //.route("/charged", HttpMethod::POST, handler)
 
     Ok(())
+}
+
+fn sign_in_handler(request: Request) -> FutureResponse<'static> {
+    match request.body {
+        Some(body) => {
+            let default = String::from("0");
+            let end = request.headers.get("Content-Length").unwrap_or(&default);
+            let end: usize = end.parse().unwrap_or(1);
+            let sign_in_body: Result<SignInBody, serde_json::Error> =
+                serde_json::from_str(&body[..end]);
+            match sign_in_body {
+                Ok(body) => {
+                    let client = Driver::new(body.username.clone(), body.password.clone());
+                    let mut authentication: bool = false;
+                    unsafe {
+                        for driver in DRIVERS.iter() {
+                            if driver.username == client.username {
+                                authentication = driver.password == client.password;
+                            }
+                        }
+                    }
+                    if authentication {
+                        eprintln!("[info] - client already exists");
+                        return get_simple_response(400, String::from("Client already exists"));
+                    } else {
+                        eprintln!("[info] - Client Signed");
+
+                        unsafe {
+                            let driver = Driver::new(body.username.clone(), body.password.clone());
+                            DRIVERS.push(driver);
+                        }
+                    }
+                    unsafe {
+                        for driver in DRIVERS.iter() {
+                            if driver.username == client.username {
+                                eprint!("Signed: ");
+                            }
+                            eprintln!("{}", driver);
+                        }
+                    }
+                    get_simple_response(200, String::from("Ok"))
+                }
+                Err(_) => get_simple_response(400, String::from("Ivalid Body")),
+            }
+        }
+        None => get_simple_response(400, String::from("Request without body")),
+    }
 }
 
 fn login_handler(request: Request) -> FutureResponse<'static> {
@@ -72,12 +119,12 @@ fn login_handler(request: Request) -> FutureResponse<'static> {
                             eprintln!("{}", driver);
                         }
                     }
-                    get_ok_response()
+                    get_simple_response(200, String::from("Ok"))
                 }
-                Err(_) => get_simple_response(400, String::from("Ivalid Body"))
+                Err(_) => get_simple_response(400, String::from("Ivalid Body")),
             }
         }
-        None => get_simple_response(400, String::from("Request without body"))
+        None => get_simple_response(400, String::from("Request without body")),
     }
 }
 
@@ -120,12 +167,12 @@ fn update_handler(request: Request) -> FutureResponse<'static> {
                             eprintln!("{}", station);
                         }
                     }
-                    get_ok_response()
+                    get_simple_response(200, String::from("Ok"))
                 }
-                Err(_) => get_simple_response(400, String::from("Ivalid Body"))
+                Err(_) => get_simple_response(400, String::from("Ivalid Body")),
             }
         }
-        None => get_simple_response(400, String::from("Request without body"))
+        None => get_simple_response(400, String::from("Request without body")),
     }
 }
 
@@ -152,14 +199,12 @@ fn connect_handler(request: Request) -> FutureResponse<'static> {
                             eprintln!("{}", station);
                         }
                     }
-                    get_ok_response()
+                    get_simple_response(200, String::from("Ok"))
                 }
-                Err(_) => get_simple_response(400, String::from("Ivalid Body"))
+                Err(_) => get_simple_response(400, String::from("Ivalid Body")),
             }
         }
-        None => {
-            get_simple_response(400, String::from("Request without body"))
-        }
+        None => get_simple_response(400, String::from("Request without body")),
     }
 }
 
@@ -191,14 +236,10 @@ fn confirm_handler(request: Request) -> FutureResponse<'static> {
                     };
                     return Box::pin(async move { Ok(response) });
                 }
-                Err(_) => {
-                    get_simple_response(400, String::from("Ivalid Body"))
-                }
+                Err(_) => get_simple_response(400, String::from("Ivalid Body")),
             }
         }
-        None => {
-            get_simple_response(400, String::from("Request without body"))
-        }
+        None => get_simple_response(400, String::from("Request without body")),
     }
 }
 
@@ -225,17 +266,6 @@ fn get_simple_response(status_code: u16, status_text: String) -> FutureResponse<
         version: "HTTP/1.1".to_string(),
         status_code,
         status_text,
-        headers: HashMap::new(),
-        body: None,
-    };
-    Box::pin(async move { Ok(response) })
-}
-
-fn get_ok_response() -> FutureResponse<'static> {
-    let response = Response {
-        version: "HTTP/1.1".to_string(),
-        status_code: 200,
-        status_text: "Ok".to_string(),
         headers: HashMap::new(),
         body: None,
     };

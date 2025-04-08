@@ -47,3 +47,9 @@ pub struct LoginBody {
     pub password: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct SignInBody {
+    pub username: String,
+    pub password: String,
+}
+
