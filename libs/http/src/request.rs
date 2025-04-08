@@ -53,3 +53,9 @@ pub struct SignInBody {
     pub password: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChargeBody {
+    pub max_distance: f32,
+    pub position: (f32, f32),
+}
+

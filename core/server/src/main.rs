@@ -1,11 +1,12 @@
 use std::collections::HashMap;
 use std::future::Future;
 use std::net::{SocketAddr, TcpStream};
+use std::ops::Deref;
 use std::usize;
 
 use http::http::HttpMethod;
 use http::middleware::logger::LoggerMiddleware;
-use http::request::{ConfirmBody, ConnectBody, LoginBody, Request, SignInBody, UpdateBody};
+use http::request::{ChargeBody, ConfirmBody, ConnectBody, LoginBody, Request, SignInBody, UpdateBody};
 use http::response::Response;
 use http::server::{FutureResponse, ServerBuilder};
 
@@ -27,16 +28,64 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/update", HttpMethod::POST, update_handler)
         .route("/sign_in", HttpMethod::POST, sign_in_handler)
         .route("/login", HttpMethod::POST, login_handler)
+        .route("/charge", HttpMethod::POST, charge_handler)
         .accept(LoggerMiddleware)
         .build()?
         .run()
         .await?;
-    //.route("/charge", HttpMethod::POST, handler)
     //.route("/arrived", HttpMethod::POST, handler)
     //.route("/charging", HttpMethod::POST, handler)
     //.route("/charged", HttpMethod::POST, handler)
 
     Ok(())
+}
+
+fn charge_handler(request: Request) -> FutureResponse<'static> {
+    match request.body {
+        Some(body) => {
+            let default = String::from("0");
+            let end = request.headers.get("Content-Length").unwrap_or(&default);
+            let end: usize = end.parse().unwrap_or(1);
+            let sign_in_body: Result<ChargeBody, serde_json::Error> =
+                serde_json::from_str(&body[..end]);
+            match sign_in_body {
+                Ok(body) => {
+                    let position = body.position;
+                    let mut min_distance = body.max_distance;
+                    let mut closest_station: Option<&Station> = None;
+                    unsafe {
+                        for station in STATIONS.iter() {
+                            let distance = ((station.position.0 - position.0) * (station.position.0 - position.0) 
+                            + (station.position.1 - position.1) * (station.position.1 - position.1)).sqrt();
+                            if distance <= min_distance{
+                                closest_station = Some(station);
+                                min_distance = distance;
+                            }
+                        }
+                    }
+                    match closest_station {
+                        Some(station) => {
+                            let default = String::from("{}");
+                            let body = serde_json::to_string(&station).unwrap_or(default);
+                            let response = Response {
+                                version: "HTTP/1.1".to_string(),
+                                status_code: 200,
+                                status_text: "Ok".to_string(),
+                                headers: HashMap::new(),
+                                body: Some(body.to_string()),
+                            };
+                            Box::pin(async move { Ok(response) })
+
+                        }
+                        None => get_simple_response(404, String::from("Not in range"))
+                    }
+                }
+                Err(_) => get_simple_response(400, String::from("Ivalid Body")),
+            }
+        }
+        None => get_simple_response(400, String::from("Request without body")),
+    }
+    
 }
 
 fn sign_in_handler(request: Request) -> FutureResponse<'static> {
