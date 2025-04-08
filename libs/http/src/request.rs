@@ -41,4 +41,9 @@ pub struct UpdateBody {
 }
 
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LoginBody {
+    pub username: String,
+    pub password: String,
+}
 

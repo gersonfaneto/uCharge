@@ -5,13 +5,16 @@ use std::usize;
 
 use http::http::HttpMethod;
 use http::middleware::logger::LoggerMiddleware;
-use http::request::{ConfirmBody, ConnectBody, Request, UpdateBody};
+use http::request::{ConfirmBody, ConnectBody, LoginBody, Request, UpdateBody};
 use http::response::Response;
 use http::server::{FutureResponse, ServerBuilder};
 
+use models::driver::Driver;
 use models::station::Station;
 
+// replace this for DB
 static mut STATIONS: Vec<Station> = Vec::new();
+static mut DRIVERS: Vec<Driver> = Vec::new();
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -22,12 +25,11 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/confirm", HttpMethod::POST, confirm_handler)
         .route("/connect", HttpMethod::POST, connect_handler)
         .route("/update", HttpMethod::POST, update_handler)
+        .route("/login", HttpMethod::POST, login_handler)
         .accept(LoggerMiddleware)
         .build()?
         .run()
         .await?;
-
-    //.route("/login", HttpMethod::POST, handler)
     //.route("/sign_in", HttpMethod::POST, handler)
     //.route("/charge", HttpMethod::POST, handler)
     //.route("/arrived", HttpMethod::POST, handler)
@@ -35,6 +37,48 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     //.route("/charged", HttpMethod::POST, handler)
 
     Ok(())
+}
+
+fn login_handler(request: Request) -> FutureResponse<'static> {
+    match request.body {
+        Some(body) => {
+            let default = String::from("0");
+            let end = request.headers.get("Content-Length").unwrap_or(&default);
+            let end: usize = end.parse().unwrap_or(1);
+            let login_body: Result<LoginBody, serde_json::Error> =
+                serde_json::from_str(&body[..end]);
+            match login_body {
+                Ok(body) => {
+                    let client = Driver::new(body.username, body.password);
+                    let mut authentication: bool = false;
+                    unsafe {
+                        for driver in DRIVERS.iter() {
+                            if driver.username == client.username {
+                                authentication = driver.password == client.password;
+                            }
+                        }
+                    }
+                    if authentication {
+                        eprintln!("[info] - client logged");
+                    } else {
+                        eprintln!("[info] - impossible to login");
+                        return get_simple_response(300, String::from("Authetication failed"));
+                    }
+                    unsafe {
+                        for driver in DRIVERS.iter() {
+                            if driver.username == client.username {
+                                eprint!("LOGGED: ");
+                            }
+                            eprintln!("{}", driver);
+                        }
+                    }
+                    get_ok_response()
+                }
+                Err(_) => get_simple_response(400, String::from("Ivalid Body"))
+            }
+        }
+        None => get_simple_response(400, String::from("Request without body"))
+    }
 }
 
 fn update_handler(request: Request) -> FutureResponse<'static> {
@@ -76,11 +120,12 @@ fn update_handler(request: Request) -> FutureResponse<'static> {
                             eprintln!("{}", station);
                         }
                     }
-                    get_ok_response()                }
-                Err(_) => get_invalid_body_response(),
+                    get_ok_response()
+                }
+                Err(_) => get_simple_response(400, String::from("Ivalid Body"))
             }
         }
-        None => get_invalid_body_response(),
+        None => get_simple_response(400, String::from("Request without body"))
     }
 }
 
@@ -109,12 +154,11 @@ fn connect_handler(request: Request) -> FutureResponse<'static> {
                     }
                     get_ok_response()
                 }
-                Err(_) => get_invalid_body_response(),
+                Err(_) => get_simple_response(400, String::from("Ivalid Body"))
             }
         }
         None => {
-            eprintln!("[error] not have bbody");
-            get_invalid_body_response()
+            get_simple_response(400, String::from("Request without body"))
         }
     }
 }
@@ -147,15 +191,13 @@ fn confirm_handler(request: Request) -> FutureResponse<'static> {
                     };
                     return Box::pin(async move { Ok(response) });
                 }
-                Err(e) => {
-                    eprintln!("{e}");
-                    get_invalid_body_response()
+                Err(_) => {
+                    get_simple_response(400, String::from("Ivalid Body"))
                 }
             }
         }
         None => {
-            eprintln!("invali body!!!");
-            get_invalid_body_response()
+            get_simple_response(400, String::from("Request without body"))
         }
     }
 }
@@ -178,11 +220,11 @@ fn health_handler(_: Request) -> FutureResponse<'static> {
     Box::pin(async move { Ok(response) })
 }
 
-fn get_invalid_body_response() -> FutureResponse<'static> {
+fn get_simple_response(status_code: u16, status_text: String) -> FutureResponse<'static> {
     let response = Response {
         version: "HTTP/1.1".to_string(),
-        status_code: 401,
-        status_text: "Invalid body".to_string(),
+        status_code,
+        status_text,
         headers: HashMap::new(),
         body: None,
     };
