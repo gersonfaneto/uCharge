@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Serialize, Deserialize, PartialEq)]
 pub struct Station {
     pub position: (f32, f32),
     pub power: f32,   // kW
@@ -16,6 +16,12 @@ impl Station {
             price,
             name,
         }
+    }
+     pub fn equals(&self, other: &Station) -> bool{
+        self.name == other.name
+        && self.power == other.power
+        && self.price == other.price
+        && self.position == other.position
     }
 }
 

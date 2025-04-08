@@ -25,5 +25,20 @@ pub struct ConnectBody {
     pub power: f32,   // kW
     pub price: f32,   // price per kWh
     pub name: String, // franchise name
-    pub pix_key: String, 
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct UpdateBody {
+    pub old_position: (f32, f32),
+    pub old_power: f32,   // kW
+    pub old_price: f32,   // price per kWh
+    pub old_name: String, // franchise name
+
+    pub new_position: (f32, f32),
+    pub new_power: f32,   
+    pub new_price: f32,  
+    pub new_name: String,
+}
+
+
+
