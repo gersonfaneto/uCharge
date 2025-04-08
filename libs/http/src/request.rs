@@ -59,3 +59,9 @@ pub struct ChargeBody {
     pub position: (f32, f32),
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ChargedBody {
+    pub position: (f32, f32),
+}
+
+

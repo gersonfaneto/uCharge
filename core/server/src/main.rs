@@ -6,7 +6,7 @@ use std::usize;
 
 use http::http::HttpMethod;
 use http::middleware::logger::LoggerMiddleware;
-use http::request::{ChargeBody, ConfirmBody, ConnectBody, LoginBody, Request, SignInBody, UpdateBody};
+use http::request::{ChargeBody, ChargedBody, ConfirmBody, ConnectBody, LoginBody, Request, SignInBody, UpdateBody};
 use http::response::Response;
 use http::server::{FutureResponse, ServerBuilder};
 
@@ -14,7 +14,8 @@ use models::driver::Driver;
 use models::station::Station;
 
 // replace this for DB
-static mut STATIONS: Vec<Station> = Vec::new();
+static mut AVAILABLE_STATIONS: Vec<Station> = Vec::new();
+static mut BUSY_STATIONS: Vec<Station> = Vec::new();
 static mut DRIVERS: Vec<Driver> = Vec::new();
 
 #[tokio::main]
@@ -29,15 +30,49 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .route("/sign_in", HttpMethod::POST, sign_in_handler)
         .route("/login", HttpMethod::POST, login_handler)
         .route("/charge", HttpMethod::POST, charge_handler)
+        .route("/charged", HttpMethod::POST, charged_handler)
         .accept(LoggerMiddleware)
         .build()?
         .run()
         .await?;
     //.route("/arrived", HttpMethod::POST, handler)
     //.route("/charging", HttpMethod::POST, handler)
-    //.route("/charged", HttpMethod::POST, handler)
 
     Ok(())
+}
+
+fn charged_handler(request: Request) -> FutureResponse<'static> {
+    match request.body {
+        Some(body) => {
+            let default = String::from("0");
+            let end = request.headers.get("Content-Length").unwrap_or(&default);
+            let end: usize = end.parse().unwrap_or(1);
+            let charged_body: Result<ChargedBody, serde_json::Error> =
+            serde_json::from_str(&body[..end]);
+            match charged_body {
+                Ok(body) =>  {
+                    let position = body.position;
+                    unsafe {
+                        let mut index = 0;
+                        for station in BUSY_STATIONS.iter() {
+                            if station.position == position {
+                                let stat = station.clone();
+                                AVAILABLE_STATIONS.push(stat);
+                                BUSY_STATIONS.remove(index);
+                                return get_simple_response(200, String::from("Ok"))
+                            }
+                            index += 1;
+                        }
+                    }
+                    get_simple_response(400, String::from("Station not found"))
+
+                },
+                Err(_) => get_simple_response(400, String::from("Ivalid Body")),
+            }
+        }
+        None => get_simple_response(400, String::from("Request without body")),
+    }
+    
 }
 
 fn charge_handler(request: Request) -> FutureResponse<'static> {
@@ -46,15 +81,15 @@ fn charge_handler(request: Request) -> FutureResponse<'static> {
             let default = String::from("0");
             let end = request.headers.get("Content-Length").unwrap_or(&default);
             let end: usize = end.parse().unwrap_or(1);
-            let sign_in_body: Result<ChargeBody, serde_json::Error> =
+            let charge_body: Result<ChargeBody, serde_json::Error> =
                 serde_json::from_str(&body[..end]);
-            match sign_in_body {
+            match charge_body {
                 Ok(body) => {
                     let position = body.position;
                     let mut min_distance = body.max_distance;
                     let mut closest_station: Option<&Station> = None;
                     unsafe {
-                        for station in STATIONS.iter() {
+                        for station in AVAILABLE_STATIONS.iter() {
                             let distance = ((station.position.0 - position.0) * (station.position.0 - position.0) 
                             + (station.position.1 - position.1) * (station.position.1 - position.1)).sqrt();
                             if distance <= min_distance{
@@ -202,17 +237,17 @@ fn update_handler(request: Request) -> FutureResponse<'static> {
                     let mut index: usize = 0;
                     unsafe {
                         // change for DB access
-                        for station in STATIONS.iter() {
+                        for station in AVAILABLE_STATIONS.iter() {
                             if station.equals(&old_station) {
-                                STATIONS.remove(index);
-                                STATIONS.push(new_station);
+                                AVAILABLE_STATIONS.remove(index);
+                                AVAILABLE_STATIONS.push(new_station);
                                 break;
                             }
                             index += 1;
                         }
                     }
                     unsafe {
-                        for station in STATIONS.iter() {
+                        for station in AVAILABLE_STATIONS.iter() {
                             eprintln!("{}", station);
                         }
                     }
@@ -236,7 +271,7 @@ fn connect_handler(request: Request) -> FutureResponse<'static> {
             match connect_body {
                 Ok(body) => {
                     unsafe {
-                        STATIONS.push(Station::new(
+                        AVAILABLE_STATIONS.push(Station::new(
                             body.position,
                             body.power,
                             body.price,
@@ -244,7 +279,7 @@ fn connect_handler(request: Request) -> FutureResponse<'static> {
                         ));
                     }
                     unsafe {
-                        for station in STATIONS.iter() {
+                        for station in AVAILABLE_STATIONS.iter() {
                             eprintln!("{}", station);
                         }
                     }

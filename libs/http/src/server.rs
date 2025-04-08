@@ -84,7 +84,7 @@ fn parse_request(buffer: &[u8]) -> Result<Request, Box<dyn std::error::Error>> {
     let mut headers = [httparse::EMPTY_HEADER; 16];
     let mut req = httparse::Request::new(&mut headers);
 
-    let res = match req.parse(buffer) {
+    let res = match req.parse(&buffer) {
         Ok(status) => match status {
             httparse::Status::Complete(amt) => amt,
             httparse::Status::Partial => {
