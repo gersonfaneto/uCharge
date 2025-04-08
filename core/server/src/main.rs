@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::future::Future;
 use std::net::{SocketAddr, TcpStream};
 use std::usize;
 
@@ -11,7 +12,6 @@ use http::server::{FutureResponse, ServerBuilder};
 use models::station::Station;
 
 static mut STATIONS: Vec<Station> = Vec::new();
-
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -51,48 +51,36 @@ fn update_handler(request: Request) -> FutureResponse<'static> {
                         body.old_position,
                         body.old_power,
                         body.old_price,
-                        body.old_name
+                        body.old_name,
                     );
                     let mut new_station = Station::new(
                         body.new_position,
                         body.new_power,
                         body.new_price,
-                        body.new_name
+                        body.new_name,
                     );
-                   let mut index:usize = 0; 
-                   unsafe { // change for DB access
+                    let mut index: usize = 0;
+                    unsafe {
+                        // change for DB access
                         for station in STATIONS.iter() {
                             if station.equals(&old_station) {
-                                STATIONS.remove(index);                        
+                                STATIONS.remove(index);
                                 STATIONS.push(new_station);
                                 break;
                             }
                             index += 1;
                         }
                     }
-                    let response = Response {
-                        version: "HTTP/1.1".to_string(),
-                        status_code: 200,
-                        status_text: "Ok".to_string(),
-                        headers: HashMap::new(),
-                        body: None,
-                    };
                     unsafe {
                         for station in STATIONS.iter() {
                             eprintln!("{}", station);
                         }
                     }
-                    eprintln!("[info] - station added");
-                    return Box::pin(async move { Ok(response) });
-                }
-                Err(_) => {
-                    get_invalid_body()
-                }
+                    get_ok_response()                }
+                Err(_) => get_invalid_body_response(),
             }
         }
-        None => {
-            get_invalid_body()
-        }
+        None => get_invalid_body_response(),
     }
 }
 
@@ -114,28 +102,19 @@ fn connect_handler(request: Request) -> FutureResponse<'static> {
                             body.name,
                         ));
                     }
-                    let response = Response {
-                        version: "HTTP/1.1".to_string(),
-                        status_code: 200,
-                        status_text: "Ok".to_string(),
-                        headers: HashMap::new(),
-                        body: None,
-                    };
                     unsafe {
                         for station in STATIONS.iter() {
                             eprintln!("{}", station);
                         }
                     }
-                    return Box::pin(async move { Ok(response) });
+                    get_ok_response()
                 }
-                Err(_) => {
-                    get_invalid_body()
-                }
+                Err(_) => get_invalid_body_response(),
             }
         }
         None => {
-                    eprintln!("[error] not have bbody");
-            get_invalid_body()
+            eprintln!("[error] not have bbody");
+            get_invalid_body_response()
         }
     }
 }
@@ -150,7 +129,10 @@ fn confirm_handler(request: Request) -> FutureResponse<'static> {
                 serde_json::from_str(&body[..end]);
             match confirm_body {
                 Ok(body) => {
-                    let html = format!("<html><body><h1>Hello Person {}!</h1></body></html>", body.token);
+                    let html = format!(
+                        "<html><body><h1>Hello Person {}!</h1></body></html>",
+                        body.token
+                    );
 
                     let response = Response {
                         version: "HTTP/1.1".to_string(),
@@ -164,17 +146,16 @@ fn confirm_handler(request: Request) -> FutureResponse<'static> {
                         body: Some(html.to_string()),
                     };
                     return Box::pin(async move { Ok(response) });
-
-            }
+                }
                 Err(e) => {
                     eprintln!("{e}");
-                    get_invalid_body()
+                    get_invalid_body_response()
                 }
             }
         }
         None => {
-                    eprintln!("invali body!!!");
-            get_invalid_body()
+            eprintln!("invali body!!!");
+            get_invalid_body_response()
         }
     }
 }
@@ -197,7 +178,7 @@ fn health_handler(_: Request) -> FutureResponse<'static> {
     Box::pin(async move { Ok(response) })
 }
 
-fn get_invalid_body() -> FutureResponse<'static> {
+fn get_invalid_body_response() -> FutureResponse<'static> {
     let response = Response {
         version: "HTTP/1.1".to_string(),
         status_code: 401,
@@ -205,5 +186,16 @@ fn get_invalid_body() -> FutureResponse<'static> {
         headers: HashMap::new(),
         body: None,
     };
-    return Box::pin(async move { Ok(response) });
+    Box::pin(async move { Ok(response) })
+}
+
+fn get_ok_response() -> FutureResponse<'static> {
+    let response = Response {
+        version: "HTTP/1.1".to_string(),
+        status_code: 200,
+        status_text: "Ok".to_string(),
+        headers: HashMap::new(),
+        body: None,
+    };
+    Box::pin(async move { Ok(response) })
 }
