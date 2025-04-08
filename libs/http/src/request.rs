@@ -19,3 +19,11 @@ pub struct ConfirmBody {
     pub plate: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConnectBody {
+    pub position: (f32, f32),
+    pub power: f32,   // kW
+    pub price: f32,   // price per kWh
+    pub name: String, // franchise name
+    pub pix_key: String, 
+}

@@ -9,7 +9,7 @@ pub struct Station {
 }
 
 impl Station {
-    pub fn new(position: (f32, f32), power: f32, price: f32, name: String) -> Self {
+    pub fn new(position: (f32, f32), power: f32, price: f32, name: String ) -> Self {
         Self {
             position,
             power,
@@ -18,3 +18,14 @@ impl Station {
         }
     }
 }
+
+impl std::fmt::Display for Station {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "name {}, position, ({}, {}), power {}, price/kWh {}",
+            self.name, self.position.0, self.position.1, self.power, self.price,
+        )
+    }
+}
+
