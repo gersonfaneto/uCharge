@@ -36,7 +36,7 @@ impl Server {
     pub async fn run(&self) -> std::io::Result<()> {
         let address = self.address;
         let listener = TcpListener::bind(address).await?;
-        println!("Server listening on {}", address.to_string());
+        println!("Server listening on {}", address);
 
         loop {
             let (mut stream, _) = listener.accept().await?;
@@ -47,31 +47,33 @@ impl Server {
                 let mut buffer = [0; 1024];
                 let _ = stream.read(&mut buffer).await.unwrap();
 
-                let request = parse_request(&buffer).unwrap();
+                let request = match parse_request(&buffer) {
+                    Ok(request) => request,
+                    Err(e) => {
+                        eprintln!("[erro] - shit: {e}");
+                        panic!("aaaaaaaaaaaaaaahhhhhhhhhhhhh!!!!!")
+                    }
+                };
 
                 let future_response = handle_route(request, &routes, &middleware).await;
 
-                match future_response.await {
-                    Ok(response) => {
-                        let response_string = format!(
-                            "HTTP/1.1 {} {}\r\n{}\r\n\r\n{}",
-                            response.status_code,
-                            response.status_text,
-                            response
-                                .headers
-                                .iter()
-                                .map(|(key, value)| format!("{}: {}", key, value))
-                                .collect::<Vec<_>>()
-                                .join("\r\n"),
-                            response.body.unwrap_or_default()
-                        );
+                if let Ok(response) = future_response.await {
+                    let response_string = format!(
+                        "HTTP/1.1 {} {}\r\n{}\r\n\r\n{}",
+                        response.status_code,
+                        response.status_text,
+                        response
+                            .headers
+                            .iter()
+                            .map(|(key, value)| format!("{}: {}", key, value))
+                            .collect::<Vec<_>>()
+                            .join("\r\n"),
+                        response.body.unwrap_or_default()
+                    );
 
-                        stream.write(response_string.as_bytes()).await.unwrap();
-                        stream.flush().await.unwrap();
-                        // Do something with the response
-                    }
-
-                    Err(_) => {}
+                    stream.write_all(response_string.as_bytes()).await.unwrap();
+                    stream.flush().await.unwrap();
+                    // Do something with the response
                 }
             });
         }
@@ -82,11 +84,14 @@ fn parse_request(buffer: &[u8]) -> Result<Request, Box<dyn std::error::Error>> {
     let mut headers = [httparse::EMPTY_HEADER; 16];
     let mut req = httparse::Request::new(&mut headers);
 
-    let res = match req.parse(&buffer)? {
-        httparse::Status::Complete(amt) => amt,
-        httparse::Status::Partial => {
-            return Err("Request is incomplete".into());
-        }
+    let res = match req.parse(buffer) {
+        Ok(status) => match status {
+            httparse::Status::Complete(amt) => amt,
+            httparse::Status::Partial => {
+                return Err("Request is incomplete".into());
+            }
+        },
+        Err(e) => panic!("{e}"),
     };
 
     let method = match req.method.ok_or("Method not found")? {
@@ -205,11 +210,17 @@ impl ServerBuilder {
         let address = self.address.ok_or("Address not set")?;
         let routes = self.routes.ok_or("Routes Uninitalized")?;
 
-        let middleware = self.middleware.ok_or("MIddleware Error").unwrap();
+        let middleware = self.middleware.ok_or("MIddleware Error")?;
         Ok(Server {
             address,
             routes,
             middleware,
         })
+    }
+}
+
+impl Default for ServerBuilder {
+    fn default() -> Self {
+        Self::new()
     }
 }

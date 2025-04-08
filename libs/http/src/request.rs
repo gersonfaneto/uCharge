@@ -12,3 +12,10 @@ pub struct Request {
     pub headers: HashMap<String, String>,
     pub body: Option<String>,
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct ConfirmBody {
+    pub token: String,
+    pub plate: String,
+}
+
