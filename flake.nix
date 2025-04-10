@@ -1,7 +1,5 @@
-# Based on :: https://github.com/the-nix-way/dev-templates
-
 {
-  description = "uCharge by @gersonfaneto, @vini464";
+  description = "A Nix-flake-based Rust development environment";
 
   inputs = {
     nixpkgs.url = "https://flakehub.com/f/NixOS/nixpkgs/0.1.*.tar.gz";
@@ -23,36 +21,18 @@
     in
     {
       overlays.default = final: prev: {
-        rustToolchain =
-          let
-            rust = prev.rust-bin;
-          in
-          if builtins.pathExists ./rust-toolchain.toml then
-            rust.fromRustupToolchainFile ./rust-toolchain.toml
-          else if builtins.pathExists ./rust-toolchain then
-            rust.fromRustupToolchainFile ./rust-toolchain
-          else
-            rust.stable.latest.default.override {
-              extensions = [ "rust-src" "rustfmt" ];
-            };
+        rustToolchain = final.rust-bin.fromRustupToolchainFile ./rust-toolchain.toml;
       };
 
       devShells = forEachSupportedSystem ({ pkgs }: {
         default = pkgs.mkShell {
           packages = with pkgs; [
-            # Rust
             rustToolchain
-
-            # Dependencies
             openssl
             pkg-config
-
-            # Cargo Utils
             cargo-deny
             cargo-edit
             cargo-watch
-
-            # LSP
             rust-analyzer
           ];
 
